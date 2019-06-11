@@ -1,0 +1,206 @@
+#!/bin/bash
+
+echoGreen( ) { echo -e $'\e[4;32m'"[INFO] $*"$'\e[0m'; }
+
+echoRed( ) { echo -e $'\e[4;31m'"[INFO] $*"$'\e[0m'; }
+
+
+dir=$(pwd)
+
+cd $dir
+
+echoGreen "Deploy root $(pwd)"
+
+action=$1
+
+if [ -e "$(pwd)/env.sh" ]
+then
+	echoGreen "init env.sh"
+	source ./env.sh
+else
+	echoGreen "Can not execute file '$(pwd)/env.sh' or file is not exist "
+	exit 0
+fi
+
+#export JAVA_HOME=$JDK6
+progress ( ){
+	point=$1
+	total=$2
+	msg=$3
+
+	progress=$((${point}*100/${total}))
+
+	fill=""
+
+	for ((i=0;$i<${progress};i+=2))
+	do
+		fill=█$fill
+	done
+	
+	if ((total==point))
+	then
+		printf "%-200s\r"
+	else
+		printf "upload jars:[%-50s] %d%% %-50s\r" "$fill" $progress $msg
+	fi
+
+}
+
+declare -A file_dic
+
+file_dic=()
+
+
+fomatfile ( ) {
+echoGreen "$1 total files $(cat $1 | wc -l)"
+while read line
+do
+	line=${line//\*/}
+	arr1=(${line})
+	filepath=${arr1[@]: -1}
+	arr=(${line//\// })
+	md5v=${arr[0]}
+	name=${arr[@]: -1}
+	file_dic["${name}_${1}_md5"]=$md5v
+	file_dic["${name}_${1}_path"]=$filepath
+	
+done < $1
+}
+
+sycnFiles ( ) {
+
+#格式化数据
+fomatfile rtmp
+
+fomatfile ltmp
+
+#先合并所有文件
+sort rtmp ltmp | awk -F '/' '{print$NF}' | sort | uniq > uniontmp
+
+totals=$(cat uniontmp | wc -l)
+echoGreen "rscy total files ${totals}"
+#计数
+pcount=0
+ucount=0
+dcount=0
+dfile=""
+ufile=""
+sfile=""
+#比对rscy
+while read line
+do
+	progress $((++pcount)) $totals $line
+	rmd5=${file_dic["${line}_rtmp_md5"]}
+	lmd5=${file_dic["${line}_ltmp_md5"]}
+	if [[ $rmd5 == $lmd5 ]]
+	then
+		sfile="${sfile} \n	${line}"
+	else
+		if [[ -z $lmd5  ]]
+		then
+			#ssh ${DEPLOY_SERVER} "cd ${DEPLOY_DIR} && rm -rf ./${line}"
+			((dcount++))
+			dfile="${dfile} ./${line}"
+		else
+			localfile=${file_dic["${line}_ltmp_path"]}
+			scp ${localfile} "${DEPLOY_SERVER}:${DEPLOY_DIR}/" > /dev/null
+			((ucount++))
+			ufile="${ufile} \n	+ ${line}"
+		fi
+		#sleep 0.1
+	fi
+	sleep 0.01
+done < uniontmp
+
+if [[ -z "$dfile" ]]
+then
+	echoGreen "no remote file delete"
+else
+	echoRed "send rm cmd delete remote files "
+	ssh  ${DEPLOY_SERVER} "cd ${DEPLOY_DIR} && rm -rf ${dfile}"
+fi
+
+#echo -e "the same as remote $sfile"
+
+echoGreen "update files(${ucount}): $ufile"
+
+echoRed "delete remote files(${dcount}): $dfile"
+
+echoGreen "upload finished totals:${totals}, modifys:${ucount}, remote delete:${dcount}"
+
+}
+
+
+
+start ( ) {
+	install && upload && runboot && readLog
+}
+
+
+install ( ) {
+
+	echoGreen "install ..."
+	
+	echo "***************************************************"
+	mvn -v
+	echo "***************************************************"
+
+	mvn clean install source:jar -Dmaven.test.skip=true -Dproject.build.sourceEncoding=UTF-8
+}
+
+upload ( ) {
+
+	echoGreen "fethch remote jars info"
+
+	ssh $DEPLOY_SERVER "cd $DEPLOY_DIR && md5sum ./*.jar" > rtmp
+
+	echoGreen "rsync local-remote jars"
+
+	jar_files=$(find ./ -name *.jar | grep -v 'sources.jar')
+
+	md5sum $jar_files > ltmp
+	
+	sycnFiles
+
+}
+
+runboot ( ) {
+
+	echoGreen "runboot..."
+
+	( ssh $DEPLOY_SERVER "bash ${RUN_SH} && exit 0 " )
+
+	}
+
+readLog ( ) {
+	
+	ac=$2
+
+	if [[ -z $ac ]]
+	then
+		
+		echoGreen "show log '${LOG_FILE}'"
+
+		ssh $DEPLOY_SERVER "tail -f ${LOG_FILE} "
+	else
+		echoGreen "exc log cmd $ac ${LOG_FILE}"
+		ssh $DEPLOY_SERVER "${ac} ${LOG_FILE}"
+	fi
+}
+# Call the appropriate action function
+case "$action" in
+start)
+  	start "$@"; exit $?;;
+install)
+  	install "$@"; exit $?;;
+upload)
+  	upload "$@"; exit $?;;
+reboot)
+ 	runboot "$@"; exit $?;;
+log)
+	readLog "$@"; exit $?;;
+*)
+	echoRed "Usage: $0 { start|install|upload|reboot|log }"; exit 1;
+esac
+
+exit 0

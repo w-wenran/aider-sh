@@ -1,0 +1,5 @@
+${group_key}-AMOUNT-4
+${group_key}-PROXY-FALSE
+${group_key}-PWD-${password}
+${group_key}-DB ${max_index} ${ip} ${port} ${user} ${password} ${databases}
+

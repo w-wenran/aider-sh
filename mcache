@@ -1,0 +1,50 @@
+#!/bin/bash
+
+#show all keys
+keys ( ) {
+
+	items=$(printf "stats items\r\n" | nc 192.168.177.160 13010)
+
+	scan=""
+	for item in $items
+		do
+			if [[ "$item" =~ "items" ]]
+			then 
+				a=$(echo $item | awk -F ':' '{print $2}')
+				if [[ ! "$scan" =~ "@@$a--" ]]
+				then
+					scan="@@${a}--${scan}"
+					printf "stats cachedump ${a} 0\r\n" | nc 192.168.177.160 13010 | grep -v 'END'
+				fi
+			fi
+		done
+}
+
+delete( ){
+	
+	printf "delete ${2}\r\n" | nc 192.168.177.160 13010
+
+}
+
+get( ){
+	
+	printf "get ${2}\r\n" | nc 192.168.177.160 13010
+
+}
+
+action=$1
+
+case "$action" in
+
+	keys)
+		keys "$@"; exit $?;;
+	delete)
+		delete "$@"; exit $?;;
+	get)
+		get "$@"; exit $?;;
+	*)
+	echo "Usage: [ keys|delete|get] "; exit 1;;
+esac
+
+exit 0
+

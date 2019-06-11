@@ -1,0 +1,65 @@
+#!/bin/bash
+
+SDK_FILE=$1
+INSTALL_DIR="/usr/java/"
+
+loginfo( ) {
+	echo "$( tput setaf 2)${1}: $(tput sgr0) $2"
+}
+
+logwarn ( ) {
+	echo "$( tput setaf 3)${1}$(tput sgr0)"
+}
+
+if [ -z "$SDK_FILE" ]
+then
+	echo "Usage: $0 sdk file path"	
+	exit 1
+fi
+
+if [ -n $SDK_FILE ] && [ -f "$SDK_FILE" ]
+then 
+	loginfo 'sdk file' $SDK_FILE
+else
+	logwarn "install file $SDK_FILE empty or  not exist"
+	exit 1
+fi
+
+NUX_ARCH="$(lscpu | grep 'Architecture' | awk -F\: '{ print $2 }' | tr -d ' ')"
+loginfo Architecture $NUX_ARCH
+
+if [ ! -d "$INSTALL_DIR" ]
+
+then 
+	logwarn "can not found \"$INSTALL_DIR\" mkdir \"$INSTALL_DIR\" "
+	mkdir -p $INSTALL_DIR
+fi
+
+loginfo "copy file " "$SDK_FILE -- $INSTALL_DIR"
+cp -f $SDK_FILE $INSTALL_DIR
+
+cd $INSTALL_DIR
+
+loginfo "tar file" '...'
+
+unziproot=$(tar -zxvf $SDK_FILE | awk -F '/' 'NR==1{print $1}')
+
+loginfo "unzip root dir" $unziproot
+
+loginfo "delete tmp file " $SDK_FILE
+rm -rf $SDK_FILE
+
+loginfo 'config path' 'JAVA_HOME CLASSPASS'
+
+echo "JAVA_HOME=/usr/java/$unziproot" >> /etc/profile
+
+echo 'PATH=$JAVA_HOME/bin:$PATH' >> /etc/profile
+
+echo 'CLASSPATH=$JAVA_HOME/jre/lib/ext:$JAVA_HOME/lib/tools.jar' >> /etc/profile
+
+echo 'export PATH JAVA_HOME CLASSPATH'  >> /etc/profile
+
+source '/etc/profile'
+
+loginfo result ***success***
+

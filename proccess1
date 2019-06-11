@@ -1,0 +1,23 @@
+#!/bin/bash
+i=0
+while [ $i -lt 20 ]
+do
+	for j in '-' '\' '|' '/'
+		do
+			printf "intel testing : %s\r" $j
+			sleep 0.1
+			((i++))
+		done
+done
+
+
+b=''
+
+for ((i=0;$i<=100;i+=2))
+do
+    printf "progress:[%-50s]%d%%\r" $b $i
+	sleep 0.1
+printf "%-100s\r" ""
+		    
+	b=#$b
+done

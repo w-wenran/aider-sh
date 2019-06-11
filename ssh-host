@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [ -z "$1" ]
+
+then
+    echo "[WARN] tell me which server you want to deploy"
+    awk '/Host /{print $2 }' ~/.ssh/config
+    exit 0
+else
+    echo "[INFO] deploy server [${1}]"
+fi
