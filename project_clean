@@ -1,0 +1,40 @@
+#!/bin/bash
+
+dir=$(pwd)
+
+cd $dir
+
+function cleandir( ){
+		config_files=$(find ./ -name $1 -type d)
+		for f in $config_files
+		do
+				rm -rf $f
+				echo "[CLEAN] $f"
+		done
+
+}
+
+function cleanfile( ){
+		config_files=$( find ./ -name $1 )
+		for f in $config_files
+		do
+				rm -rf $f
+				echo "[CLEAN] $f"
+		done
+
+}
+
+cleandir *target*
+cleandir *svn*
+cleandir *logs*
+cleanfile *.log
+config_files=$( find ./ -name .settings -o -name .project -o -name .idea -o -name .classpath -o -name .idea -o -name *.iml -o -name *.class -o -name *.jar )
+
+for f in $config_files
+do
+	rm -rf $f
+	echo "[CLEAN] $f"
+done
+
+echo Project reset success!
+
